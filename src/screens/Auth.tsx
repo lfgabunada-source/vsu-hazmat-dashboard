@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { Navigate } from 'react-router-dom'
 import { ShieldCheck, LogIn, UserPlus, AlertTriangle, CheckCircle2, Mail } from 'lucide-react'
 import { useApp, isVsuEmail, ADMIN_EMAIL } from '../store/app'
+import BrandMark from '../components/BrandMark'
 
 type Mode = 'login' | 'register'
 
@@ -26,7 +27,7 @@ export default function Auth({ initialMode = 'login' }: { initialMode?: Mode }) 
 
   const emailValid = useMemo(() => !rEmail || isVsuEmail(rEmail), [rEmail])
 
-  if (initializing) return <div className="app-loading"><div className="app-loading-mark">V</div><span>Loading…</span></div>
+  if (initializing) return <div className="app-loading"><div className="app-loading-mark"><BrandMark size={28} /></div><span>Loading…</span></div>
   if (session) return <Navigate to="/" replace />
 
   const onLogin = async (e: FormEvent) => {
@@ -60,8 +61,8 @@ export default function Auth({ initialMode = 'login' }: { initialMode?: Mode }) 
       <div className="auth-card">
         {/* Brand header */}
         <div className="auth-brand">
-          <div className="brand-mark" style={{ width: 46, height: 46, fontSize: 22 }}>
-            V
+          <div className="brand-mark" style={{ width: 46, height: 46 }}>
+            <BrandMark size={27} />
           </div>
           <div>
             <b>VSU HazMat</b>

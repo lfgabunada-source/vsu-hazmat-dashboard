@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
+import BrandMark from './BrandMark'
 import { useApp } from '../store/app'
 
 export default function Layout() {
@@ -10,7 +11,7 @@ export default function Layout() {
   if (initializing) {
     return (
       <div className="app-loading">
-        <div className="app-loading-mark">V</div>
+        <div className="app-loading-mark"><BrandMark size={28} /></div>
         <span>Loading VSU HazMat…</span>
       </div>
     )

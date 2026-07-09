@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { stats } from '../data'
 import { useApp } from '../store/app'
+import BrandMark from './BrandMark'
 
 interface NavItemDef {
   to: string
@@ -111,7 +112,7 @@ export default function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <div className="brand-mark">V</div>
+        <div className="brand-mark"><BrandMark size={22} /></div>
         <div className="brand-text">
           <b>VSU HazMat</b>
           <span>Lab Safety Registry</span>
