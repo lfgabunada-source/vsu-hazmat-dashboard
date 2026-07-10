@@ -127,8 +127,25 @@ function authErr(msg?: string): string {
   return msg || 'Something went wrong. Please try again.'
 }
 
+export interface Guideline {
+  id: string
+  title: string
+  body: string // one bullet per line
+  icon: string
+  sort: number
+}
+export interface GuidelineDoc {
+  id: string
+  title: string
+  filePath: string
+  sizeBytes?: number
+  createdAt: string
+}
+
 interface AppCtx {
   users: AppUser[]
+  guidelines: Guideline[]
+  guidelineDocs: GuidelineDoc[]
   units: AcademicUnit[]
   wasteStreams: WasteStream[]
   session: AppUser | null
@@ -144,6 +161,11 @@ interface AppCtx {
   updateUnit: (id: string, patch: Partial<AcademicUnit>) => Promise<void>
   removeUnit: (id: string) => Promise<Result>
   addWasteStream: (w: WasteStream) => Promise<Result>
+  saveGuideline: (g: { id?: string; title: string; body: string; icon: string }) => Promise<Result>
+  deleteGuideline: (id: string) => Promise<void>
+  uploadGuidelineDoc: (title: string, file: File) => Promise<Result>
+  deleteGuidelineDoc: (doc: GuidelineDoc) => Promise<void>
+  docUrl: (filePath: string) => string
 }
 
 const Ctx = createContext<AppCtx | null>(null)
@@ -158,6 +180,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<AppUser[]>([])
   const [unitRows, setUnitRows] = useState<any[]>([]) // eslint-disable-line @typescript-eslint/no-explicit-any
   const [wasteStreams, setWaste] = useState<WasteStream[]>([])
+  const [guidelines, setGuidelines] = useState<Guideline[]>([])
+  const [guidelineDocs, setGuidelineDocs] = useState<GuidelineDoc[]>([])
   const [initializing, setInitializing] = useState(true)
 
   // Derive units from roster + waste, and keep module registries in sync so
@@ -173,12 +197,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const loadData = useCallback(async (isAdmin: boolean) => {
-    const [unitsRes, wasteRes] = await Promise.all([
+    const [unitsRes, wasteRes, guideRes, docRes] = await Promise.all([
       supabase.from('units').select('*').order('name'),
       supabase.from('waste_streams').select('*').order('created_at', { ascending: false }),
+      supabase.from('guidelines').select('*').order('sort'),
+      supabase.from('guideline_docs').select('*').order('created_at', { ascending: false }),
     ])
     setUnitRows(unitsRes.data ?? [])
     setWaste((wasteRes.data ?? []).map(mapWaste))
+    setGuidelines((guideRes.data ?? []) as Guideline[])
+    setGuidelineDocs(
+      (docRes.data ?? []).map((r) => ({
+        id: r.id,
+        title: r.title,
+        filePath: r.file_path,
+        sizeBytes: r.size_bytes ?? undefined,
+        createdAt: r.created_at,
+      })),
+    )
     if (isAdmin) {
       const { data } = await supabase.from('profiles').select('*').order('created_at')
       setUsers((data ?? []).map(mapProfile))
@@ -392,8 +428,103 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [profile],
   )
 
+  // ---- guidelines (admin-editable text cards) ----
+  const refreshGuidelines = useCallback(async () => {
+    const { data } = await supabase.from('guidelines').select('*').order('sort')
+    setGuidelines((data ?? []) as Guideline[])
+  }, [])
+
+  const saveGuideline = useCallback(
+    async (g: { id?: string; title: string; body: string; icon: string }): Promise<Result> => {
+      const row = {
+        title: g.title,
+        body: g.body,
+        icon: g.icon,
+        updated_by: profile?.id ?? null,
+        updated_at: new Date().toISOString(),
+      }
+      const { error } = g.id
+        ? await supabase.from('guidelines').update(row).eq('id', g.id)
+        : await supabase
+            .from('guidelines')
+            .insert({ ...row, sort: (guidelines[guidelines.length - 1]?.sort ?? 0) + 10 })
+      if (error) return { ok: false, error: error.message }
+      await refreshGuidelines()
+      return { ok: true }
+    },
+    [profile, guidelines, refreshGuidelines],
+  )
+
+  const deleteGuideline = useCallback(
+    async (id: string) => {
+      const { error } = await supabase.from('guidelines').delete().eq('id', id)
+      if (!error) await refreshGuidelines()
+    },
+    [refreshGuidelines],
+  )
+
+  // ---- uploaded PDF guideline documents ----
+  const refreshDocs = useCallback(async () => {
+    const { data } = await supabase
+      .from('guideline_docs')
+      .select('*')
+      .order('created_at', { ascending: false })
+    setGuidelineDocs(
+      (data ?? []).map((r) => ({
+        id: r.id,
+        title: r.title,
+        filePath: r.file_path,
+        sizeBytes: r.size_bytes ?? undefined,
+        createdAt: r.created_at,
+      })),
+    )
+  }, [])
+
+  const uploadGuidelineDoc = useCallback(
+    async (title: string, file: File): Promise<Result> => {
+      const isPdf =
+        file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')
+      if (!isPdf) return { ok: false, error: 'Only PDF files are allowed.' }
+      if (file.size > 20 * 1024 * 1024)
+        return { ok: false, error: 'File exceeds the 20 MB limit.' }
+      const safe = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${Date.now()}-${safe}`
+      const up = await supabase.storage
+        .from('guideline-pdfs')
+        .upload(path, file, { contentType: 'application/pdf', upsert: false })
+      if (up.error) return { ok: false, error: up.error.message }
+      const { error } = await supabase.from('guideline_docs').insert({
+        title: title.trim() || file.name.replace(/\.pdf$/i, ''),
+        file_path: path,
+        size_bytes: file.size,
+        uploaded_by: profile?.id ?? null,
+      })
+      if (error) return { ok: false, error: error.message }
+      await refreshDocs()
+      return { ok: true }
+    },
+    [profile, refreshDocs],
+  )
+
+  const deleteGuidelineDoc = useCallback(
+    async (doc: GuidelineDoc) => {
+      await supabase.storage.from('guideline-pdfs').remove([doc.filePath])
+      const { error } = await supabase.from('guideline_docs').delete().eq('id', doc.id)
+      if (!error) await refreshDocs()
+    },
+    [refreshDocs],
+  )
+
+  const docUrl = useCallback(
+    (filePath: string) =>
+      supabase.storage.from('guideline-pdfs').getPublicUrl(filePath).data.publicUrl,
+    [],
+  )
+
   const value: AppCtx = {
     users,
+    guidelines,
+    guidelineDocs,
     units,
     wasteStreams,
     session: profile,
@@ -409,6 +540,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateUnit,
     removeUnit,
     addWasteStream,
+    saveGuideline,
+    deleteGuideline,
+    uploadGuidelineDoc,
+    deleteGuidelineDoc,
+    docUrl,
   }
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

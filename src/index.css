@@ -652,6 +652,37 @@ table.data tbody tr:hover { background: var(--card-2); }
 .ai-rec-standards { padding-top: 8px; border-top: 1px solid var(--border); }
 
 /* ============================================================
+   Guideline PDF documents
+   ============================================================ */
+.doc-upload {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  padding: 12px; border: 1px dashed var(--border-strong); border-radius: 10px;
+  background: var(--card-2); margin-bottom: 14px;
+}
+.doc-title-input {
+  flex: 1; min-width: 200px; height: 38px; border-radius: 8px;
+  border: 1px solid var(--border-strong); background: #fff; padding: 0 12px;
+}
+.doc-file-input { font-size: 12.5px; color: var(--muted-2); max-width: 240px; }
+.doc-file-input::file-selector-button {
+  font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--border-strong); background: var(--card); color: var(--text);
+  border-radius: 8px; padding: 7px 12px; margin-right: 10px;
+}
+.doc-file-input::file-selector-button:hover { background: var(--card-2); }
+.doc-list { display: flex; flex-direction: column; }
+.doc-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 11px 4px; border-bottom: 1px solid var(--border);
+}
+.doc-row:last-child { border-bottom: none; }
+.doc-ico {
+  width: 34px; height: 34px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: var(--high-tint); color: var(--high);
+}
+
+/* ============================================================
    Full-screen loading gate
    ============================================================ */
 .app-loading {

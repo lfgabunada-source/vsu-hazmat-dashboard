@@ -142,6 +142,80 @@ insert into public.units (id, name, short, building, coordinator, deadline) valu
 on conflict (id) do nothing;
 
 -- ============================================================
+-- Guidelines (admin-editable reference cards) + PDF documents
+-- ============================================================
+create table if not exists public.guidelines (
+  id         uuid primary key default gen_random_uuid(),
+  title      text not null,
+  body       text not null default '',   -- one bullet per line
+  icon       text not null default 'book',
+  sort       int  not null default 100,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references public.profiles(id) on delete set null
+);
+
+create table if not exists public.guideline_docs (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null,
+  file_path   text not null,
+  size_bytes  bigint,
+  uploaded_by uuid references public.profiles(id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+
+alter table public.guidelines     enable row level security;
+alter table public.guideline_docs enable row level security;
+grant select, insert, update, delete on public.guidelines, public.guideline_docs to authenticated;
+
+-- everyone signed in can read; only admin can change
+drop policy if exists guidelines_select on public.guidelines;
+create policy guidelines_select on public.guidelines for select to authenticated using (true);
+drop policy if exists guidelines_write on public.guidelines;
+create policy guidelines_write on public.guidelines for all to authenticated
+  using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists gdocs_select on public.guideline_docs;
+create policy gdocs_select on public.guideline_docs for select to authenticated using (true);
+drop policy if exists gdocs_insert on public.guideline_docs;
+create policy gdocs_insert on public.guideline_docs for insert to authenticated with check (public.is_admin());
+drop policy if exists gdocs_delete on public.guideline_docs;
+create policy gdocs_delete on public.guideline_docs for delete to authenticated using (public.is_admin());
+
+-- Storage bucket for the PDFs (public read, admin write)
+insert into storage.buckets (id, name, public) values ('guideline-pdfs','guideline-pdfs', true)
+on conflict (id) do nothing;
+drop policy if exists gpdf_read on storage.objects;
+create policy gpdf_read on storage.objects for select using (bucket_id = 'guideline-pdfs');
+drop policy if exists gpdf_write on storage.objects;
+create policy gpdf_write on storage.objects for insert to authenticated
+  with check (bucket_id = 'guideline-pdfs' and public.is_admin());
+drop policy if exists gpdf_delete on storage.objects;
+create policy gpdf_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'guideline-pdfs' and public.is_admin());
+
+-- Seed the starter guideline cards (only if the table is empty)
+insert into public.guidelines (title, body, icon, sort)
+select v.title, v.body, v.icon, v.sort
+from (values
+  ('GHS chemical segregation',
+   E'Store acids and bases in separate secondary containment.\nKeep flammables in dedicated cabinets, away from oxidizers.\nIsolate oxidizers from organics, solvents, and reducers.\nApply the GHS pictogram segregation matrix to every storage area.\nNever store corrosives above eye level.',
+   'flask', 10),
+  ('Biosafety practice (BSL-1 to BSL-3)',
+   E'BSL-1: standard microbiological practices for non-pathogens.\nBSL-2: biosafety cabinet for aerosols; restricted access; PPE.\nBSL-3: containment lab, HEPA exhaust, respiratory protection.\nAutoclave all infectious waste; validate monthly with spore tests.\nVaccinate personnel handling bloodborne pathogens (e.g. HBV).',
+   'bio', 20),
+  ('Chemical waste disposal',
+   E'Use only DENR-accredited haulers; retain a manifest for every pickup.\nNeutralize acids/bases where protocol permits before disposal.\nSegregate waste by class (flammable, corrosive, toxic, reactive).\nNever pour hazardous waste down drains.\nProfile each stream against DENR DAO 2013-22 and RA 6969.',
+   'waste', 30),
+  ('Expiry & disposal',
+   E'Review chemical expiry dates quarterly.\nFlag items within 60 days of expiry for planned disposal.\nRemove expired stock from active storage immediately.\nLog all disposals in the Waste Register with a manifest reference.',
+   'calendar', 40),
+  ('Data entry standards',
+   E'Use canonical substance names and correct units.\nRecord storage location and disposal method precisely.\nVerify hazard class / biosafety level against references.\nResolve AI recommendations before validating a submission.',
+   'data', 50)
+) as v(title, body, icon, sort)
+where not exists (select 1 from public.guidelines);
+
+-- ============================================================
 -- AFTER you sign up the admin account in the app once, run this ONE line
 -- (in the SQL editor) to promote it. Change the email if yours differs:
 --
