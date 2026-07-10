@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
 
-// VSU HazMat brand mark — a lab flask with liquid + bubbles.
-// Uses currentColor so it inherits the badge's gold color.
+// VSU HazMat brand mark — a rounded safety-shield badge with a lab-flask
+// crest above the "VSU" monogram. Uses currentColor (gold) throughout.
 export default function BrandMark({
   size = 22,
   style,
@@ -9,6 +9,8 @@ export default function BrandMark({
   size?: number
   style?: CSSProperties
 }) {
+  const shield =
+    'M5 4.2 C5 3.1 5.5 2.6 6.6 2.6 H17.4 C18.5 2.6 19 3.1 19 4.2 V14 C19 16.8 16.2 19.6 12 21 C7.8 19.6 5 16.8 5 14 Z'
   return (
     <svg
       width={size}
@@ -19,28 +21,34 @@ export default function BrandMark({
       aria-label="VSU HazMat"
       style={style}
     >
-      {/* liquid fill */}
+      {/* shield frame */}
+      <path d={shield} fill="currentColor" opacity="0.1" />
+      <path d={shield} stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+
+      {/* flask crest */}
+      <path d="M10.1 4.6 H13.9" stroke="currentColor" strokeWidth="1.15" strokeLinecap="round" />
       <path
-        d="M7.6 13.9 L5.3 17.7 C4.8 18.6 5.5 19.8 6.6 19.8 H17.4 C18.5 19.8 19.2 18.6 18.7 17.7 L16.4 13.9 Z"
-        fill="currentColor"
-        opacity="0.28"
-      />
-      {/* flask outline */}
-      <path
-        d="M10 3.6 V8.6 L5.3 17.7 C4.8 18.6 5.5 19.8 6.6 19.8 H17.4 C18.5 19.8 19.2 18.6 18.7 17.7 L14 8.6 V3.6"
+        d="M10.5 4.6 V6.3 L9.4 8.2 C9.15 8.7 9.5 9.1 10.1 9.1 H13.9 C14.5 9.1 14.85 8.7 14.6 8.2 L13.5 6.3 V4.6"
         stroke="currentColor"
-        strokeWidth="1.5"
+        strokeWidth="1.15"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      {/* rim */}
-      <path d="M9 3.6 H15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      {/* liquid surface */}
-      <path d="M7.6 13.9 H16.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      {/* bubbles */}
-      <circle cx="10.6" cy="16.4" r="0.75" fill="currentColor" />
-      <circle cx="13.2" cy="17.4" r="0.6" fill="currentColor" />
-      <circle cx="12" cy="11.3" r="0.6" fill="currentColor" opacity="0.65" />
+      <path d="M9.95 7.7 H14.05" stroke="currentColor" strokeWidth="1.05" strokeLinecap="round" />
+
+      {/* VSU monogram */}
+      <text
+        x="12"
+        y="14.9"
+        textAnchor="middle"
+        fontFamily="Archivo, system-ui, sans-serif"
+        fontWeight="800"
+        fontSize="4.3"
+        letterSpacing="0.06"
+        fill="currentColor"
+      >
+        VSU
+      </text>
     </svg>
   )
 }
