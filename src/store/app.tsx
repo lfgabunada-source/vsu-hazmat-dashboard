@@ -401,32 +401,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // ---- waste submission ----
   const addWasteStream = useCallback(
     async (w: WasteStream): Promise<Result> => {
-      const { data, error } = await supabase
-        .from('waste_streams')
-        .insert({
-          unit_id: w.unitId,
-          category: w.category,
-          name: w.name,
-          room: w.room ?? null,
-          source_activity: w.sourceActivity,
-          hazard_class: w.hazardClass,
-          hazard_code: w.hazardCode,
-          physical_state: w.physicalState,
-          volume_per_month: w.volumePerMonth,
-          storage: w.storage,
-          disposal_activity: w.disposalActivity,
-          method: w.method,
-          treatment: w.treatment,
-          hauler: w.hauler,
-          manifest: w.manifest,
-          status: w.status,
-          ai: w.ai,
-          created_by: profile?.id ?? null,
-        })
-        .select('*')
-        .single()
-      if (error) return { ok: false, error: error.message }
-      setWaste((ws) => [mapWaste(data), ...ws])
+      const base: Record<string, unknown> = {
+        unit_id: w.unitId,
+        category: w.category,
+        name: w.name,
+        source_activity: w.sourceActivity,
+        hazard_class: w.hazardClass,
+        hazard_code: w.hazardCode,
+        physical_state: w.physicalState,
+        volume_per_month: w.volumePerMonth,
+        storage: w.storage,
+        disposal_activity: w.disposalActivity,
+        method: w.method,
+        treatment: w.treatment,
+        hauler: w.hauler,
+        manifest: w.manifest,
+        status: w.status,
+        ai: w.ai,
+        created_by: profile?.id ?? null,
+      }
+      const insert = (payload: Record<string, unknown>) =>
+        supabase.from('waste_streams').insert(payload).select('*').single()
+      let res = await insert({ ...base, room: w.room ?? null })
+      // If the DB hasn't been migrated with the room column yet, still save the
+      // entry (without room) rather than failing outright.
+      if (res.error && /room/i.test(res.error.message)) res = await insert(base)
+      if (res.error) return { ok: false, error: res.error.message }
+      setWaste((ws) => [mapWaste(res.data), ...ws])
       return { ok: true }
     },
     [profile],
@@ -453,14 +454,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (w.manifest !== undefined) row.manifest = w.manifest
       if (w.status !== undefined) row.status = w.status
       if (w.ai !== undefined) row.ai = w.ai
-      const { data, error } = await supabase
-        .from('waste_streams')
-        .update(row)
-        .eq('id', id)
-        .select('*')
-        .single()
-      if (error) return { ok: false, error: error.message }
-      setWaste((ws) => ws.map((x) => (x.id === id ? mapWaste(data) : x)))
+      const update = (payload: Record<string, unknown>) =>
+        supabase.from('waste_streams').update(payload).eq('id', id).select('*').single()
+      let res = await update(row)
+      // Save even if the DB hasn't been migrated with the room column yet.
+      if (res.error && /room/i.test(res.error.message)) {
+        const noRoom = { ...row }
+        delete noRoom.room
+        res = await update(noRoom)
+      }
+      if (res.error) return { ok: false, error: res.error.message }
+      setWaste((ws) => ws.map((x) => (x.id === id ? mapWaste(res.data) : x)))
       return { ok: true }
     },
     [],
