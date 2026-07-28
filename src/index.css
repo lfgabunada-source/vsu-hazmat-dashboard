@@ -586,21 +586,40 @@ table.data tbody tr:hover { background: var(--card-2); }
   .grid-4 { grid-template-columns: repeat(2, 1fr); }
   .grid-3 { grid-template-columns: repeat(2, 1fr); }
 }
-@media (max-width: 960px) {
-  :root { --sidebar-w: 74px; }
-  .sidebar { --sidebar-w: 74px; }
-  .brand-text, .nav-label, .nav-count, .ai-badge, .user-chip .u-name, .user-chip .u-role, .nav-group-label { display: none; }
-  .nav-item { justify-content: center; }
-  .sidebar-brand { justify-content: center; padding: 16px 0; }
-  .user-chip { justify-content: center; }
-  .ai-search { display: none; }
+/* Hamburger button + backdrop — hidden on desktop, shown on mobile */
+.menu-btn {
+  display: none; width: 38px; height: 38px; border-radius: 9px; flex-shrink: 0;
+  align-items: center; justify-content: center;
+  color: var(--text); background: var(--card); border: 1px solid var(--border-strong);
+}
+.menu-btn:hover { background: var(--card-2); }
+.sidebar-backdrop { display: none; }
+
+@media (max-width: 900px) {
+  /* Off-canvas slide-in sidebar toggled by the hamburger */
+  .menu-btn { display: inline-flex; }
+  .main { margin-left: 0; }
+  .sidebar:not(.open) { transform: translateX(-100%); }
+  .sidebar.open { box-shadow: var(--shadow-pop); }
+  .sidebar-backdrop {
+    display: block; position: fixed; inset: 0; z-index: 39;
+    background: rgba(12, 30, 20, 0.42); animation: fadein 0.2s ease;
+  }
   .form-grid, .kanban { grid-template-columns: 1fr; }
 }
+@keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+
 @media (max-width: 720px) {
   .grid-4, .grid-3, .grid-2 { grid-template-columns: 1fr; }
   .row { flex-direction: column; }
   .content { padding: 16px; }
   .paper { padding: 28px 22px; }
+  .topbar { padding: 10px 14px; gap: 10px; min-height: 60px; }
+  .topbar-title h1 { font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .topbar-title p { display: none; }
+}
+@media (max-width: 440px) {
+  .btn-label { display: none; } /* icon-only Report button on very small phones */
 }
 
 /* ============================================================
@@ -695,6 +714,18 @@ table.data tbody tr:hover { background: var(--card-2); }
   display: grid; place-items: center;
   background: var(--high-tint); color: var(--high);
 }
+
+/* Empty-state hero (e.g. dashboard before any data) */
+.empty-hero {
+  padding: 52px 32px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.empty-hero-mark {
+  width: 64px; height: 64px; border-radius: 16px; display: grid; place-items: center;
+  background: var(--low-tint); color: var(--accent); margin-bottom: 4px;
+}
+.empty-hero h2 { font-size: 20px; }
+.empty-hero p { color: var(--muted-2); max-width: 460px; font-size: 13.5px; line-height: 1.55; margin-bottom: 8px; }
 
 /* ============================================================
    Full-screen loading gate

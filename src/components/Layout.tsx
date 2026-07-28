@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import TopBar from './TopBar'
@@ -7,6 +8,12 @@ import { useApp } from '../store/app'
 export default function Layout() {
   const { session, initializing } = useApp()
   const location = useLocation()
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  // Close the mobile menu whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false)
+  }, [location.pathname])
 
   if (initializing) {
     return (
@@ -23,9 +30,10 @@ export default function Layout() {
 
   return (
     <div className="app">
-      <Sidebar />
+      <Sidebar open={menuOpen} onNavigate={() => setMenuOpen(false)} />
+      {menuOpen && <div className="sidebar-backdrop" onClick={() => setMenuOpen(false)} />}
       <div className="main">
-        <TopBar />
+        <TopBar onMenu={() => setMenuOpen((o) => !o)} />
         <main className="content">
           <Outlet />
         </main>

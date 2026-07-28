@@ -7,6 +7,7 @@ import {
   Sparkles,
   ChevronRight,
   CheckCircle2,
+  Plus,
 } from 'lucide-react'
 import { KpiCard, Pill, statusTone } from '../components/ui'
 import { wasteStats, unitName, type Severity } from '../data'
@@ -41,11 +42,32 @@ const sevTone = (s: Severity): 'high' | 'med' | 'low' | 'info' | 'neutral' =>
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { units } = useApp()
+  const { units, session, isAdmin } = useApp()
 
   const chem = wasteStats.countByCategory('Chemical')
   const bio = wasteStats.countByCategory('Biological')
   const feed = wasteStats.priorityRecommendations
+
+  // Friendly empty state before any waste has been reported.
+  if (wasteStats.total === 0) {
+    return (
+      <div className="stack">
+        <div className="card empty-hero">
+          <div className="empty-hero-mark"><Recycle size={26} /></div>
+          <h2>Welcome, {session?.name}</h2>
+          <p>
+            No waste streams have been reported yet.{' '}
+            {isAdmin
+              ? 'As units start reporting, this dashboard fills with live counts, per-unit handling scores, and AI recommendations.'
+              : 'Report your unit’s first waste stream and the AI will check how it’s handled — right away.'}
+          </p>
+          <button className="btn btn-primary" onClick={() => navigate('/new')}>
+            <Plus size={16} /> Report a waste stream
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="stack">

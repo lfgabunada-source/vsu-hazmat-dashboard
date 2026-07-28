@@ -25,6 +25,7 @@ interface NavItemDef {
   ai?: boolean
   badge?: number
   badgeTone?: 'red' | 'amber'
+  adminItem?: boolean // hidden from focal persons to keep their menu focused
 }
 interface Group {
   label: string
@@ -32,7 +33,13 @@ interface Group {
   adminOnly?: boolean
 }
 
-export default function Sidebar() {
+export default function Sidebar({
+  open = false,
+  onNavigate,
+}: {
+  open?: boolean
+  onNavigate?: () => void
+}) {
   const { session, isAdmin, pendingCount, logout } = useApp()
   const navigate = useNavigate()
 
@@ -54,13 +61,14 @@ export default function Sidebar() {
           icon: Users,
           badge: stats.pendingUnits,
           badgeTone: 'red',
+          adminItem: true,
         },
       ],
     },
     {
       label: 'Waste',
       items: [
-        { to: '/new', label: 'New Waste Entry', icon: PlusCircle, ai: true },
+        { to: '/new', label: 'Report Waste', icon: PlusCircle, ai: true },
         { to: '/waste', label: 'Waste Register', icon: Trash2 },
       ],
     },
@@ -74,6 +82,7 @@ export default function Sidebar() {
           icon: Wrench,
           badge: stats.openActions,
           badgeTone: 'amber',
+          adminItem: true,
         },
         { to: '/guidelines', label: 'Guidelines', icon: BookOpen },
       ],
@@ -94,11 +103,16 @@ export default function Sidebar() {
     },
     {
       label: 'Reporting',
-      items: [{ to: '/report', label: 'Consolidated Report', icon: FileText }],
+      items: [{ to: '/report', label: 'Consolidated Report', icon: FileText, adminItem: true }],
     },
   ]
 
-  const visible = groups.filter((g) => !g.adminOnly || isAdmin)
+  // Show admin-only groups only to admins, and drop admin-only items (and any
+  // group left empty) for focal persons so their menu stays focused.
+  const visible = groups
+    .filter((g) => !g.adminOnly || isAdmin)
+    .map((g) => ({ ...g, items: g.items.filter((it) => isAdmin || !it.adminItem) }))
+    .filter((g) => g.items.length > 0)
 
   const initials = (session?.name ?? '')
     .replace(/[^A-Za-z ]/g, '')
@@ -110,7 +124,7 @@ export default function Sidebar() {
     .toUpperCase()
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar ${open ? 'open' : ''}`}>
       <div className="sidebar-brand">
         <div className="brand-mark"><BrandMark size={22} /></div>
         <div className="brand-text">
@@ -130,6 +144,7 @@ export default function Sidebar() {
                   key={it.to}
                   to={it.to}
                   end={it.to === '/'}
+                  onClick={onNavigate}
                   className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                 >
                   <Icon size={17} />
