@@ -33,6 +33,7 @@ create table if not exists public.waste_streams (
   unit_id         text not null references public.units(id) on delete cascade,
   category        text not null check (category in ('Chemical','Biological')),
   name            text not null,
+  room            text,                          -- laboratory / room (building comes from the unit)
   source_activity text not null,
   hazard_class    text,
   hazard_code     text,
@@ -49,6 +50,8 @@ create table if not exists public.waste_streams (
   created_by      uuid references public.profiles(id) on delete set null,
   created_at      timestamptz not null default now()
 );
+-- add the room column too if the table already existed from an earlier run:
+alter table public.waste_streams add column if not exists room text;
 
 -- ---------- Helper functions (security definer avoids RLS recursion) ----------
 create or replace function public.is_admin() returns boolean

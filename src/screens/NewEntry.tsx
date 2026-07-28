@@ -75,7 +75,10 @@ export default function NewEntry() {
   const [treatment, setTreatment] = useState('')
   const [hauler, setHauler] = useState('')
   const [unitId, setUnitId] = useState(isFocal ? (session?.unitId ?? '') : '')
+  const [room, setRoom] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const unitBuilding = units.find((u) => u.id === unitId)?.building ?? ''
 
   const switchCategory = (c: WasteCategory) => {
     setCategory(c)
@@ -108,7 +111,7 @@ export default function NewEntry() {
   )
 
   const requiredFilled =
-    name.trim() && activity.trim() && amount.trim() && storage.trim() && method && unitId &&
+    name.trim() && activity.trim() && amount.trim() && storage.trim() && method && unitId && room.trim() &&
     (method !== 'Other' || customMethod.trim())
 
   const methodState: CheckState = !rec
@@ -134,6 +137,7 @@ export default function NewEntry() {
       unitId,
       category,
       name: name.trim(),
+      room: room.trim(),
       sourceActivity: activity.trim(),
       hazardClass: hazard.hazardClass,
       hazardCode: hazard.hazardCode,
@@ -293,7 +297,7 @@ export default function NewEntry() {
               </div>
             )}
 
-            {/* Unit */}
+            {/* Unit / Laboratory / Room */}
             <div className="field">
               <label>Academic unit <span className="req">*</span>
                 {isFocal && <span className="muted" style={{ fontWeight: 400 }}> · locked</span>}
@@ -307,6 +311,19 @@ export default function NewEntry() {
                     <option key={u.id} value={u.id}>{u.short} — {u.building}</option>
                   ))}
                 </select>
+              )}
+            </div>
+            <div className="field">
+              <label>Laboratory / Room <span className="req">*</span></label>
+              <input
+                value={room}
+                onChange={(e) => setRoom(e.target.value)}
+                placeholder="e.g. Rm 204 — Organic Chemistry Lab"
+              />
+              {unitBuilding && (
+                <span className="muted" style={{ fontSize: 11.5 }}>
+                  Building: <b style={{ color: 'var(--text)' }}>{unitBuilding}</b> · used for the Hazard Zone Map
+                </span>
               )}
             </div>
 

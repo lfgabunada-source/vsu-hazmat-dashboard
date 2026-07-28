@@ -107,6 +107,7 @@ export interface WasteStream {
   unitId: string
   category: WasteCategory
   name: string
+  room?: string // laboratory / room where it is generated (building comes from the unit)
   sourceActivity: string // the lab activity that generates this waste
   hazardClass: string // GHS / DENR / DOH classification
   hazardCode: string

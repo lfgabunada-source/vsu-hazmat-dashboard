@@ -62,6 +62,10 @@ function StreamRow({ w }: { w: WasteStream }) {
         <div className="waste-detail">
           <div className="waste-meta-grid">
             <div>
+              <span className="wm-k">Laboratory / room</span>
+              <span className="wm-v">{w.room || '—'}</span>
+            </div>
+            <div>
               <span className="wm-k">Interim storage</span>
               <span className="wm-v">{w.storage}</span>
             </div>
