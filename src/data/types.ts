@@ -114,7 +114,7 @@ export interface WasteStream {
   volumePerMonth: string
   storage: string // interim storage before disposal
   disposalActivity: string // what the unit currently does to dispose of it
-  method: DisposalMethod
+  method: DisposalMethod | string // a preset method, or a user-typed "Other" route
   treatment: string // neutralization / autoclave / none
   hauler: string | null
   manifest: string | null

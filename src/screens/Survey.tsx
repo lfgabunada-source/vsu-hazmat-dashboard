@@ -41,7 +41,7 @@ const SECTIONS: { num: number; title: string; fields: SurveyField[] }[] = [
     num: 4,
     title: 'How is it disposed of?',
     fields: [
-      { q: 'Disposal method', type: 'Plain-language dropdown · required' },
+      { q: 'Disposal method', type: 'Plain-language dropdown · or “Other — type it in” · required' },
       { q: 'Treatment applied', type: 'Short text · optional — ✨ AI suggests as you type' },
       { q: 'Collected by (hauler / company)', type: 'Short text · shown only when a hauler applies' },
       { q: 'Manifest / reference', type: '✨ Handled by the AI — it reminds you to keep a manifest' },

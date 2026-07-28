@@ -294,3 +294,48 @@ export function advise(input: AdviceInput): WasteRecommendation {
         ['WHO Laboratory Biosafety Manual, 4th ed. (2020)', 'DOH HCWM Manual'])
   }
 }
+
+// Handle a user-typed ("Other") disposal route: map obvious phrases to a known
+// method, flag clearly unsafe routes, otherwise recommend a safety-officer review.
+export function adviseCustom(
+  category: WasteCategory,
+  traits: Trait[],
+  text: string,
+): WasteRecommendation {
+  const q = ` ${text.toLowerCase()} `
+  const mk = (
+    verdict: WasteRecommendation['verdict'],
+    severity: Severity,
+    summary: string,
+    actions: string[],
+    standards: string[],
+  ): WasteRecommendation => ({ verdict, severity, summary, actions, standards })
+
+  // Map common descriptions to a known method for a precise recommendation.
+  if (/(drain|sink|sewer|pour|poured|flush)/.test(q))
+    return advise({ category, traits, method: 'Drain disposal', hasHauler: false })
+  if (/(autoclav|steriliz)/.test(q))
+    return advise({ category, traits, method: 'On-site autoclave', hasHauler: false })
+  if (/(neutraliz)/.test(q))
+    return advise({ category, traits, method: 'Neutralization', hasHauler: false })
+  if (/(hauler|haul|collect|company|denr|tsd|accredited|licensed|pick ?up|cleanway|metroclark)/.test(q))
+    return advise({ category, traits, method: 'DENR-accredited hauler', hasHauler: true })
+
+  // Clearly unsafe routes.
+  if (/(incinerat|burn|burned|burning|open fire|sunog)/.test(q))
+    return mk('Improperly handled', 'HIGH',
+      'Open burning / incineration of hazardous or infectious laboratory waste is restricted in the Philippines. Use authorized non-burn treatment or a licensed hauler instead.',
+      ['Stop burning this waste.', 'Route it to authorized non-burn treatment or a DENR/DOH-accredited hauler.'],
+      ['RA 8749 (Clean Air Act)', 'DENR DAO 2013-22', 'DOH HCWM Manual'])
+  if (/(bury|buried|dump|dumped|landfill|garbage|trash|basura|junk|throw|thrown|general waste|regular waste|mixed waste)/.test(q))
+    return mk('Improperly handled', 'HIGH',
+      'Hazardous or infectious waste must not go into general garbage, open dumps, or landfill. It has to be treated and/or consigned to a licensed hauler.',
+      ['Stop disposing of this with general/solid waste.', 'Segregate it and consign to a DENR/DOH-accredited hauler with a manifest.'],
+      ['RA 6969', 'DENR DAO 2013-22', 'RA 9003 (Ecological Solid Waste Management Act)'])
+
+  // Unknown route — flag for officer review.
+  return mk('Needs improvement', 'MEDIUM',
+    'This disposal route isn’t one of the standard options, so it can’t be auto-verified. Have the University Safety Officer review it and route the waste per the Guidelines and DENR / DOH requirements.',
+    ['Describe the method precisely so it can be assessed.', 'Have the safety officer confirm the route is compliant before continuing.'],
+    ['RA 6969', 'DENR DAO 2013-22', 'DOH HCWM Manual'])
+}

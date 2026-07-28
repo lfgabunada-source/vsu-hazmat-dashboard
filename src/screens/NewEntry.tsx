@@ -16,9 +16,11 @@ import {
   unitName,
   type WasteCategory,
   type WasteStream,
+  type DisposalMethod,
 } from '../data'
 import {
   advise,
+  adviseCustom,
   classifyHazard,
   inferTraits,
   suggestStorage,
@@ -69,6 +71,7 @@ export default function NewEntry() {
   const [amtPer, setAmtPer] = useState('per month')
   const [storage, setStorage] = useState('')
   const [method, setMethod] = useState('')
+  const [customMethod, setCustomMethod] = useState('')
   const [treatment, setTreatment] = useState('')
   const [hauler, setHauler] = useState('')
   const [unitId, setUnitId] = useState(isFocal ? (session?.unitId ?? '') : '')
@@ -77,6 +80,7 @@ export default function NewEntry() {
   const switchCategory = (c: WasteCategory) => {
     setCategory(c)
     setMethod('')
+    setCustomMethod('')
     setPhysicalState(PHYS[c][0])
     setAmtUnit(c === 'Chemical' ? 'Liters' : 'Kilograms')
   }
@@ -88,18 +92,24 @@ export default function NewEntry() {
 
   const rec = useMemo(() => {
     if (!method) return null
+    if (method === 'Other') return customMethod.trim() ? adviseCustom(category, traits, customMethod) : null
     return advise({
       category,
       traits,
-      method: method as WasteStream['method'],
+      method: method as DisposalMethod,
       hasHauler: hauler.trim().length > 0,
     })
-  }, [category, traits, method, hauler])
+  }, [category, traits, method, customMethod, hauler])
 
   const storageSug = useMemo(() => suggestStorage(category, traits), [category, traits])
-  const treatmentSug = useMemo(() => (method ? suggestTreatment(category, method) : ''), [category, method])
+  const treatmentSug = useMemo(
+    () => (method && method !== 'Other' ? suggestTreatment(category, method) : ''),
+    [category, method],
+  )
 
-  const requiredFilled = name.trim() && activity.trim() && amount.trim() && storage.trim() && method && unitId
+  const requiredFilled =
+    name.trim() && activity.trim() && amount.trim() && storage.trim() && method && unitId &&
+    (method !== 'Other' || customMethod.trim())
 
   const methodState: CheckState = !rec
     ? 'idle'
@@ -130,8 +140,8 @@ export default function NewEntry() {
       physicalState,
       volumePerMonth: `${amount} ${UNIT_ABBR[amtUnit] ?? amtUnit} ${amtPer}`,
       storage: storage.trim(),
-      disposalActivity: methodLabel(method),
-      method: method as WasteStream['method'],
+      disposalActivity: method === 'Other' ? customMethod.trim() : methodLabel(method),
+      method: method === 'Other' ? customMethod.trim() : method,
       treatment: treatment.trim() || 'Not specified',
       hauler: hauler.trim() || null,
       manifest: null,
@@ -264,8 +274,24 @@ export default function NewEntry() {
                 {METHOD_OPTIONS[category].map((m) => (
                   <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
+                <option value="Other">Other — type it in</option>
               </select>
             </div>
+
+            {method === 'Other' && (
+              <div className="field full">
+                <label>Describe how it’s disposed of <span className="req">*</span></label>
+                <input
+                  value={customMethod}
+                  onChange={(e) => setCustomMethod(e.target.value)}
+                  placeholder="e.g. Given to a scrap buyer / returned to supplier / stored then buried on-site…"
+                  autoFocus
+                />
+                <span className="muted" style={{ fontSize: 11.5 }}>
+                  Describe it in your own words — the AI will still check it and flag anything unsafe.
+                </span>
+              </div>
+            )}
 
             {/* Unit */}
             <div className="field">
@@ -360,7 +386,9 @@ export default function NewEntry() {
 
                 {!method || !rec ? (
                   <div className="muted" style={{ color: 'rgba(233,239,233,0.6)', fontSize: 12.5, marginTop: 8 }}>
-                    Now choose <b style={{ color: '#fff' }}>how it’s disposed of</b> to get the full recommendation.
+                    {method === 'Other'
+                      ? <>Type <b style={{ color: '#fff' }}>how it’s disposed of</b> to get the recommendation.</>
+                      : <>Now choose <b style={{ color: '#fff' }}>how it’s disposed of</b> to get the full recommendation.</>}
                   </div>
                 ) : (
                   <>
