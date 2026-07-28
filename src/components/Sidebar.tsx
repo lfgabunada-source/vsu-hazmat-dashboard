@@ -2,7 +2,6 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Map,
-  ClipboardList,
   Users,
   PlusCircle,
   Trash2,
@@ -52,20 +51,6 @@ export default function Sidebar({
       ],
     },
     {
-      label: 'Data Collection',
-      items: [
-        { to: '/survey', label: 'Survey Instrument', icon: ClipboardList },
-        {
-          to: '/coordination',
-          label: 'Unit Coordination',
-          icon: Users,
-          badge: stats.pendingUnits,
-          badgeTone: 'red',
-          adminItem: true,
-        },
-      ],
-    },
-    {
       label: 'Waste',
       items: [
         { to: '/new', label: 'Report Waste', icon: PlusCircle, ai: true },
@@ -91,6 +76,13 @@ export default function Sidebar({
       label: 'Administration',
       adminOnly: true,
       items: [
+        {
+          to: '/coordination',
+          label: 'Unit Coordination',
+          icon: Users,
+          badge: stats.pendingUnits,
+          badgeTone: 'red',
+        },
         {
           to: '/admin/approvals',
           label: 'Approvals',

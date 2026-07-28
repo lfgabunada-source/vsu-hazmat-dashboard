@@ -9,7 +9,6 @@ import { AppProvider } from './store/app'
 import Auth from './screens/Auth'
 import Dashboard from './screens/Dashboard'
 import HazardMap from './screens/HazardMap'
-import Survey from './screens/Survey'
 import UnitCoordination from './screens/UnitCoordination'
 import NewEntry from './screens/NewEntry'
 import WasteRegister from './screens/WasteRegister'
@@ -29,7 +28,6 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'map', element: <HazardMap /> },
-      { path: 'survey', element: <Survey /> },
       { path: 'coordination', element: <UnitCoordination /> },
       { path: 'new', element: <NewEntry /> },
       { path: 'waste', element: <WasteRegister /> },

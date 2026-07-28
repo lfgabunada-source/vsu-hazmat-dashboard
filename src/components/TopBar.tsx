@@ -4,9 +4,8 @@ import { Plus, Menu } from 'lucide-react'
 const TITLES: Record<string, { title: string; sub: string }> = {
   '/': { title: 'Dashboard', sub: 'Waste generation, disposal activities & AI recommendations' },
   '/map': { title: 'Hazard Zone Map', sub: 'Schematic risk distribution across campus buildings' },
-  '/survey': { title: 'Survey Instrument', sub: 'Mandate 1 · Standardized data-collection questionnaire' },
   '/coordination': { title: 'Unit Coordination', sub: 'Mandate 2 · Submission tracking across academic units' },
-  '/new': { title: 'Report Waste', sub: 'Tell us about a waste stream · the AI checks how it’s handled' },
+  '/new': { title: 'Report Waste', sub: 'Mandate 1 · The standardized TWG waste survey · AI checks how it’s handled' },
   '/waste': { title: 'Waste Register', sub: 'Mandate 5 · Waste generated per unit & disposal activities' },
   '/assessment': { title: 'AI Waste Assessment', sub: 'Are wastes handled properly? Recommendations vs. safety standards' },
   '/actions': { title: 'Corrective Actions', sub: 'Mandate 6 · Remediation tasks from assessment findings' },
