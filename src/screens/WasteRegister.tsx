@@ -10,36 +10,63 @@ import {
   ArrowRight,
   Factory,
   Trash2,
+  Pencil,
 } from 'lucide-react'
 import { wasteStats, type WasteStream, type Severity } from '../data'
 import { KpiCard, Pill, statusTone } from '../components/ui'
 import { useApp } from '../store/app'
+import { useToast } from '../components/Toast'
+import WasteEditForm from '../components/WasteEditForm'
 
 type CatFilter = 'All' | 'Chemical' | 'Biological'
 
 const sevClass = (s: Severity) => s.toLowerCase()
 
-function StreamRow({ w }: { w: WasteStream }) {
+function StreamRow({
+  w,
+  isAdmin,
+  onEdit,
+  onDelete,
+}: {
+  w: WasteStream
+  isAdmin: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
   const [open, setOpen] = useState(false)
   return (
     <div className={`waste-card ${w.status === 'Non-compliant' ? 'flag' : ''}`}>
-      <button className="waste-card-head" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
-        <span className={`waste-cat-icon ${w.category === 'Chemical' ? 'chem' : 'bio'}`}>
-          {w.category === 'Chemical' ? <FlaskConical size={16} /> : <Dna size={16} />}
-        </span>
-        <div className="grow" style={{ minWidth: 0 }}>
-          <div className="cell-main">{w.name}</div>
-          <div className="cell-sub">
-            {w.hazardClass} · <span className="mono">{w.hazardCode}</span> · {w.volumePerMonth}
+      <div style={{ display: 'flex', alignItems: 'stretch' }}>
+        <button className="waste-card-head grow" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          <span className={`waste-cat-icon ${w.category === 'Chemical' ? 'chem' : 'bio'}`}>
+            {w.category === 'Chemical' ? <FlaskConical size={16} /> : <Dna size={16} />}
+          </span>
+          <div className="grow" style={{ minWidth: 0 }}>
+            <div className="cell-main">{w.name}</div>
+            <div className="cell-sub">
+              {w.hazardClass} · <span className="mono">{w.hazardCode}</span> · {w.volumePerMonth}
+            </div>
           </div>
-        </div>
-        <Pill tone={statusTone(w.status)}>{w.status}</Pill>
-        <ChevronDown
-          size={17}
-          color="var(--muted)"
-          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
-        />
-      </button>
+          <Pill tone={statusTone(w.status)}>{w.status}</Pill>
+          <ChevronDown
+            size={17}
+            color="var(--muted)"
+            style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}
+          />
+        </button>
+        {isAdmin && (
+          <div
+            style={{ display: 'flex', alignItems: 'center', gap: 2, padding: '0 8px', borderLeft: '1px solid var(--border)' }}
+          >
+            <button className="icon-btn" onClick={onEdit} aria-label={`Edit ${w.name}`} title="Edit">
+              <Pencil size={15} />
+            </button>
+            <button className="icon-btn danger" onClick={onDelete} aria-label={`Delete ${w.name}`} title="Delete">
+              <Trash2 size={15} />
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* generation → disposal summary (always visible) */}
       <div className="waste-flow">
@@ -124,8 +151,16 @@ function StreamRow({ w }: { w: WasteStream }) {
 
 export default function WasteRegister() {
   const [cat, setCat] = useState<CatFilter>('All')
-  const { units: allUnits, wasteStreams } = useApp()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const { units: allUnits, wasteStreams, isAdmin, deleteWasteStream } = useApp()
+  const { toast } = useToast()
   const units = allUnits.filter((u) => wasteStreams.some((w) => w.unitId === u.id))
+
+  const onDelete = async (w: WasteStream) => {
+    if (!window.confirm(`Delete the waste stream “${w.name}”? This cannot be undone.`)) return
+    const res = await deleteWasteStream(w.id)
+    toast(res.ok ? `Deleted “${w.name}”.` : `Could not delete: ${res.error}`, 'info')
+  }
 
   return (
     <div className="stack">
@@ -176,9 +211,25 @@ export default function WasteRegister() {
               </span>
             </div>
             <div className="card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {streams.map((w) => (
-                <StreamRow w={w} key={w.id} />
-              ))}
+              {streams.map((w) =>
+                editingId === w.id ? (
+                  <WasteEditForm
+                    key={w.id}
+                    stream={w}
+                    units={allUnits}
+                    onCancel={() => setEditingId(null)}
+                    onSaved={() => setEditingId(null)}
+                  />
+                ) : (
+                  <StreamRow
+                    key={w.id}
+                    w={w}
+                    isAdmin={isAdmin}
+                    onEdit={() => setEditingId(w.id)}
+                    onDelete={() => onDelete(w)}
+                  />
+                ),
+              )}
             </div>
           </div>
         )

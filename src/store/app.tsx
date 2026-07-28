@@ -162,6 +162,8 @@ interface AppCtx {
   updateUnit: (id: string, patch: Partial<AcademicUnit>) => Promise<void>
   removeUnit: (id: string) => Promise<Result>
   addWasteStream: (w: WasteStream) => Promise<Result>
+  updateWasteStream: (id: string, w: Partial<WasteStream>) => Promise<Result>
+  deleteWasteStream: (id: string) => Promise<Result>
   saveGuideline: (g: { id?: string; title: string; body: string; icon: string }) => Promise<Result>
   deleteGuideline: (id: string) => Promise<void>
   uploadGuidelineDoc: (title: string, file: File) => Promise<Result>
@@ -430,6 +432,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [profile],
   )
 
+  // Edit a submitted waste stream (admin, or the creator — enforced by RLS).
+  const updateWasteStream = useCallback(
+    async (id: string, w: Partial<WasteStream>): Promise<Result> => {
+      const row: Record<string, unknown> = {}
+      if (w.unitId !== undefined) row.unit_id = w.unitId
+      if (w.category !== undefined) row.category = w.category
+      if (w.name !== undefined) row.name = w.name
+      if (w.room !== undefined) row.room = w.room || null
+      if (w.sourceActivity !== undefined) row.source_activity = w.sourceActivity
+      if (w.hazardClass !== undefined) row.hazard_class = w.hazardClass
+      if (w.hazardCode !== undefined) row.hazard_code = w.hazardCode
+      if (w.physicalState !== undefined) row.physical_state = w.physicalState
+      if (w.volumePerMonth !== undefined) row.volume_per_month = w.volumePerMonth
+      if (w.storage !== undefined) row.storage = w.storage
+      if (w.disposalActivity !== undefined) row.disposal_activity = w.disposalActivity
+      if (w.method !== undefined) row.method = w.method
+      if (w.treatment !== undefined) row.treatment = w.treatment
+      if (w.hauler !== undefined) row.hauler = w.hauler
+      if (w.manifest !== undefined) row.manifest = w.manifest
+      if (w.status !== undefined) row.status = w.status
+      if (w.ai !== undefined) row.ai = w.ai
+      const { data, error } = await supabase
+        .from('waste_streams')
+        .update(row)
+        .eq('id', id)
+        .select('*')
+        .single()
+      if (error) return { ok: false, error: error.message }
+      setWaste((ws) => ws.map((x) => (x.id === id ? mapWaste(data) : x)))
+      return { ok: true }
+    },
+    [],
+  )
+
+  const deleteWasteStream = useCallback(async (id: string): Promise<Result> => {
+    const { error } = await supabase.from('waste_streams').delete().eq('id', id)
+    if (error) return { ok: false, error: error.message }
+    setWaste((ws) => ws.filter((x) => x.id !== id))
+    return { ok: true }
+  }, [])
+
   // ---- guidelines (admin-editable text cards) ----
   const refreshGuidelines = useCallback(async () => {
     const { data } = await supabase.from('guidelines').select('*').order('sort')
@@ -542,6 +585,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateUnit,
     removeUnit,
     addWasteStream,
+    updateWasteStream,
+    deleteWasteStream,
     saveGuideline,
     deleteGuideline,
     uploadGuidelineDoc,
