@@ -50,6 +50,88 @@ export const BIO_METHODS: DisposalMethod[] = [
 
 export const methodsFor = (c: WasteCategory) => (c === 'Chemical' ? CHEM_METHODS : BIO_METHODS)
 
+// Student-friendly labels for the disposal-method dropdown.
+export const METHOD_OPTIONS: Record<WasteCategory, { value: DisposalMethod; label: string }[]> = {
+  Chemical: [
+    { value: 'DENR-accredited hauler', label: 'Collected by a licensed hazardous-waste hauler' },
+    { value: 'Neutralization', label: 'Neutralized, then drained' },
+    { value: 'Charcoal filtration / destaining', label: 'Treated on-site (e.g. charcoal filter)' },
+    { value: 'Drain disposal', label: 'Poured down the drain / sink' },
+    { value: 'Untreated / accumulating', label: 'Just stored — no disposal yet' },
+  ],
+  Biological: [
+    { value: 'On-site autoclave', label: 'Autoclaved (sterilized) on-site' },
+    { value: 'Non-burn treatment', label: 'Collected for approved (non-burn) treatment' },
+    { value: 'DENR-accredited hauler', label: 'Collected by a licensed hazardous-waste hauler' },
+    { value: 'Drain disposal', label: 'Poured down the drain / sink' },
+    { value: 'Untreated / accumulating', label: 'Just stored — no disposal yet' },
+  ],
+}
+export const methodLabel = (m: string): string => {
+  for (const list of Object.values(METHOD_OPTIONS)) {
+    const found = list.find((o) => o.value === m)
+    if (found) return found.label
+  }
+  return m
+}
+
+// ---- Infer hazard traits from the waste name/description ----
+// so the user never has to tick boxes; the AI reads the text.
+const CHEM_KEYWORDS: Record<ChemTrait, string[]> = {
+  carcinogen: ['formaldehyde', 'formalin', 'benzene', 'chloroform', 'carcinogen', 'mutagen', 'ethidium', 'etbr', 'acrylamide'],
+  heavyMetals: ['mercury', 'lead', 'cadmium', 'chromium', 'arsenic', 'nickel', 'heavy metal', 'aas', 'kjeldahl', 'digestate', 'silver nitrate', 'barium', 'cobalt'],
+  halogenated: ['chloroform', 'dichloromethane', 'dcm', 'methylene chloride', 'carbon tetrachloride', 'halogenated', 'chlorinated', 'trichloro'],
+  flammable: ['acetone', 'ethanol', 'methanol', 'isopropanol', 'alcohol', 'hexane', 'acetonitrile', 'ether', 'toluene', 'xylene', 'solvent', 'flammable', 'ethyl acetate', 'petroleum'],
+  oxidizer: ['peroxide', 'h2o2', 'nitrate', 'permanganate', 'oxidizer', 'oxidiser', 'hypochlorite', 'bleach', 'chlorate', 'perchlorate'],
+  corrosive: ['acid', 'alkali', 'hydrochloric', 'sulfuric', 'sulphuric', 'nitric', 'hydroxide', 'naoh', 'koh', 'caustic', 'corrosive', 'ammonia', 'hcl', 'h2so4'],
+  toxic: ['cyanide', 'toxic', 'pesticide', 'herbicide', 'phenol'],
+}
+const BIO_KEYWORDS: Record<BioTrait, string[]> = {
+  infectious: ['culture', 'bacteri', 'coli', 'salmonella', 'staph', 'agar', 'broth', 'microb', 'infectious', 'plate', 'petri', 'fungal', 'yeast', 'virus', 'viral', 'pathogen'],
+  sharps: ['sharps', 'needle', 'syringe', 'blade', 'scalpel', 'lancet', 'broken glass', 'pipette tip'],
+  bloodborne: ['blood', 'serum', 'plasma', 'hbv', 'hepatitis', 'hiv', 'bloodborne'],
+  bsl3: ['tuberculosis', 'mycobacterium', 'bsl-3', 'bsl3', 'bsl 3'],
+  anatomical: ['tissue', 'carcass', 'animal', 'organ', 'anatomical', 'necropsy', 'cadaver', 'dissection', 'specimen'],
+}
+export function inferTraits(category: WasteCategory, text: string): Trait[] {
+  const q = ` ${text.toLowerCase()} `
+  const map: Record<string, string[]> = category === 'Chemical' ? CHEM_KEYWORDS : BIO_KEYWORDS
+  const out: Trait[] = []
+  for (const [trait, words] of Object.entries(map)) {
+    if (words.some((w) => q.includes(w))) out.push(trait as Trait)
+  }
+  return out
+}
+export const traitLabel = (t: Trait): string =>
+  [...CHEM_TRAITS, ...BIO_TRAITS].find((x) => x.key === t)?.label ?? t
+
+// ---- Live "AI suggests…" values for storage & treatment ----
+export function suggestStorage(category: WasteCategory, traits: Trait[]): string {
+  if (category === 'Chemical') {
+    if (traits.includes('carcinogen')) return 'Sealed container in a ventilated / fume-hooded cabinet, clearly labelled'
+    if (traits.includes('corrosive')) return 'Corrosives cabinet — keep acids and bases apart, with a secondary containment tray'
+    if (traits.includes('flammable')) return 'Flammables cabinet, ventilated, away from ignition, with secondary containment'
+    if (traits.includes('oxidizer')) return 'Cool, dark store with a vented cap — keep away from flammables and organics'
+    return 'Sealed, labelled container in a designated hazardous-waste store with secondary containment'
+  }
+  if (traits.includes('sharps')) return 'Rigid, puncture-proof sharps container, sealed when ¾ full'
+  if (traits.includes('bsl3')) return 'Sealed inside BSL-3 containment until decontaminated'
+  if (traits.includes('bloodborne')) return 'Leak-proof, labelled biohazard container in locked cold storage'
+  if (traits.includes('anatomical')) return 'Double-bagged and refrigerated until collection'
+  return 'Leak-proof yellow biohazard bags/bins in an autoclave-holding area'
+}
+export function suggestTreatment(category: WasteCategory, method: string): string {
+  if (category === 'Biological') {
+    if (method === 'On-site autoclave') return 'Autoclave at 121 °C for at least 30 minutes; verify with a spore test'
+    if (method === 'Non-burn treatment') return 'Authorized non-burn treatment handled by the licensed hauler'
+    return 'Decontaminate (autoclave or disinfect) before any disposal'
+  }
+  if (method === 'Neutralization') return 'Neutralize to pH 6–9 and confirm it is free of metals before drain disposal'
+  if (method === 'Charcoal filtration / destaining') return 'Pass through an activated-charcoal filter; treat spent charcoal as hazardous waste'
+  if (method === 'DENR-accredited hauler') return 'Off-site treatment by the DENR-registered facility'
+  return 'No on-site treatment — collect and hand to a licensed hauler'
+}
+
 // Suggest a hazard class + code from the declared traits.
 export function classifyHazard(
   category: WasteCategory,
@@ -75,13 +157,12 @@ interface AdviceInput {
   traits: Trait[]
   method: DisposalMethod
   hasHauler: boolean
-  hasManifest: boolean
 }
 
 const has = (t: Trait[], k: Trait) => t.includes(k)
 
 export function advise(input: AdviceInput): WasteRecommendation {
-  const { category, traits, method, hasHauler, hasManifest } = input
+  const { category, traits, method, hasHauler } = input
 
   const mk = (
     verdict: WasteRecommendation['verdict'],
@@ -131,17 +212,17 @@ export function advise(input: AdviceInput): WasteRecommendation {
           ['RA 9275 (Clean Water Act)', 'DENR DAO 2013-22', 'OSHA 29 CFR 1910.1450'])
 
       case 'DENR-accredited hauler':
-        if (hasHauler && hasManifest) {
+        if (hasHauler) {
           const std = ['RA 6969', 'DENR DAO 2013-22', 'US EPA RCRA 40 CFR 261']
           if (has(traits, 'flammable')) std.push('NFPA 30')
           return mk('Properly handled', 'OK',
-            'Consigning this hazardous chemical waste to a DENR-registered TSD facility with a manifest is the recommended disposal route.',
-            ['Retain manifests for at least 5 years (DAO 2013-22).', 'Keep incompatible wastes (e.g. halogenated vs. non-halogenated, acids vs. bases) segregated.'],
+            'Consigning this hazardous chemical waste to a DENR-registered hauler is the recommended disposal route. Keep a manifest for every pickup.',
+            ['Ask the hauler for a manifest each pickup and retain it for at least 5 years (DAO 2013-22).', 'Keep incompatible wastes (e.g. halogenated vs. non-halogenated, acids vs. bases) segregated.'],
             std)
         }
         return mk('Needs improvement', 'MEDIUM',
-          'The hauler route is correct, but a manifest and accredited hauler must be recorded for every consignment.',
-          ['Use only a DENR-registered TSD hauler.', 'Record and retain the manifest number for each pickup.'],
+          'The hauler route is correct — just record which DENR-accredited hauler collects it, and keep a manifest for every pickup.',
+          ['Name the DENR-registered hauler collecting this waste.', 'Retain the manifest for each pickup for at least 5 years.'],
           ['DENR DAO 2013-22', 'RA 6969'])
 
       case 'Charcoal filtration / destaining':

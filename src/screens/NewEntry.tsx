@@ -20,10 +20,12 @@ import {
 import {
   advise,
   classifyHazard,
-  methodsFor,
-  CHEM_TRAITS,
-  BIO_TRAITS,
-  type Trait,
+  inferTraits,
+  suggestStorage,
+  suggestTreatment,
+  traitLabel,
+  methodLabel,
+  METHOD_OPTIONS,
 } from '../lib/wasteAdvisor'
 import { useToast } from '../components/Toast'
 import { useApp } from '../store/app'
@@ -44,6 +46,12 @@ function CheckRow({ state, title, detail }: { state: CheckState; title: string; 
   )
 }
 
+const UNIT_ABBR: Record<string, string> = { Liters: 'L', Milliliters: 'mL', Kilograms: 'kg', Grams: 'g' }
+const PHYS: Record<WasteCategory, string[]> = {
+  Chemical: ['Liquid', 'Solid', 'Sludge / paste', 'Mixed'],
+  Biological: ['Cultures / plates', 'Liquid', 'Sharps', 'Tissue', 'Mixed'],
+}
+
 export default function NewEntry() {
   const navigate = useNavigate()
   const { toast } = useToast()
@@ -55,30 +63,28 @@ export default function NewEntry() {
   const [category, setCategory] = useState<WasteCategory>('Chemical')
   const [name, setName] = useState('')
   const [activity, setActivity] = useState('')
-  const [traits, setTraits] = useState<Trait[]>([])
   const [physicalState, setPhysicalState] = useState('Liquid')
-  const [volume, setVolume] = useState('')
-  const [volUnit, setVolUnit] = useState('L / month')
+  const [amount, setAmount] = useState('')
+  const [amtUnit, setAmtUnit] = useState('Liters')
+  const [amtPer, setAmtPer] = useState('per month')
   const [storage, setStorage] = useState('')
   const [method, setMethod] = useState('')
-  const [disposalActivity, setDisposalActivity] = useState('')
   const [treatment, setTreatment] = useState('')
   const [hauler, setHauler] = useState('')
-  const [manifest, setManifest] = useState('')
   const [unitId, setUnitId] = useState(isFocal ? (session?.unitId ?? '') : '')
-
-  const traitOptions = category === 'Chemical' ? CHEM_TRAITS : BIO_TRAITS
-  const methodOptions = methodsFor(category)
-
-  const toggleTrait = (t: Trait) =>
-    setTraits((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+  const [submitting, setSubmitting] = useState(false)
 
   const switchCategory = (c: WasteCategory) => {
     setCategory(c)
-    setTraits([])
     setMethod('')
-    setVolUnit(c === 'Chemical' ? 'L / month' : 'kg / month')
+    setPhysicalState(PHYS[c][0])
+    setAmtUnit(c === 'Chemical' ? 'Liters' : 'Kilograms')
   }
+
+  // AI infers hazard traits from the name + activity text — no checkboxes.
+  const traits = useMemo(() => inferTraits(category, `${name} ${activity}`), [category, name, activity])
+  const hazard = useMemo(() => classifyHazard(category, traits), [category, traits])
+  const haulerRelevant = method === 'DENR-accredited hauler' || method === 'Non-burn treatment'
 
   const rec = useMemo(() => {
     if (!method) return null
@@ -87,18 +93,14 @@ export default function NewEntry() {
       traits,
       method: method as WasteStream['method'],
       hasHauler: hauler.trim().length > 0,
-      hasManifest: manifest.trim().length > 0,
     })
-  }, [category, traits, method, hauler, manifest])
+  }, [category, traits, method, hauler])
 
-  const hazard = useMemo(() => classifyHazard(category, traits), [category, traits])
+  const storageSug = useMemo(() => suggestStorage(category, traits), [category, traits])
+  const treatmentSug = useMemo(() => (method ? suggestTreatment(category, method) : ''), [category, method])
 
-  const requiredFilled =
-    name.trim() && activity.trim() && volume.trim() && storage.trim() && method && disposalActivity.trim() && unitId
+  const requiredFilled = name.trim() && activity.trim() && amount.trim() && storage.trim() && method && unitId
 
-  // checklist
-  const classifyState: CheckState = name.trim() ? (traits.length > 0 ? 'ok' : 'warn') : 'idle'
-  const fieldsState: CheckState = requiredFilled ? 'ok' : name.trim() ? 'warn' : 'idle'
   const methodState: CheckState = !rec
     ? 'idle'
     : rec.verdict === 'Properly handled'
@@ -106,21 +108,6 @@ export default function NewEntry() {
       : rec.verdict === 'Needs improvement'
         ? 'warn'
         : 'err'
-  const treatmentExpected =
-    method === 'On-site autoclave' || method === 'Non-burn treatment' || method === 'Neutralization'
-  const treatmentState: CheckState = !method
-    ? 'idle'
-    : treatmentExpected
-      ? treatment.trim()
-        ? 'ok'
-        : 'warn'
-      : 'ok'
-  const haulerNeeded = method === 'DENR-accredited hauler'
-  const manifestState: CheckState = !haulerNeeded
-    ? 'idle'
-    : hauler.trim() && manifest.trim()
-      ? 'ok'
-      : 'warn'
 
   const summary: 'clear' | 'review' | 'blocked' = !rec
     ? 'review'
@@ -129,8 +116,6 @@ export default function NewEntry() {
       : rec.verdict === 'Needs improvement'
         ? 'review'
         : 'blocked'
-
-  const [submitting, setSubmitting] = useState(false)
 
   const submit = async () => {
     if (!requiredFilled || !rec || submitting) return
@@ -143,13 +128,13 @@ export default function NewEntry() {
       hazardClass: hazard.hazardClass,
       hazardCode: hazard.hazardCode,
       physicalState,
-      volumePerMonth: `${volume} ${volUnit.replace(' / month', '')}/mo`,
+      volumePerMonth: `${amount} ${UNIT_ABBR[amtUnit] ?? amtUnit} ${amtPer}`,
       storage: storage.trim(),
-      disposalActivity: disposalActivity.trim(),
+      disposalActivity: methodLabel(method),
       method: method as WasteStream['method'],
-      treatment: treatment.trim() || (treatmentExpected ? '—' : 'Not applicable'),
+      treatment: treatment.trim() || 'Not specified',
       hauler: hauler.trim() || null,
-      manifest: manifest.trim() || null,
+      manifest: null,
       status: statusFromVerdict(rec.verdict),
       ai: rec,
     }
@@ -185,7 +170,7 @@ export default function NewEntry() {
       <div className="card grow" style={{ flexBasis: '58%' }}>
         <div className="card-head">
           <h3 style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <Recycle size={16} color="var(--vsu-green)" /> Waste stream details
+            <Recycle size={16} color="var(--vsu-green)" /> Report a waste stream
           </h3>
           <span className="sub" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <UserCircle2 size={14} /> {session?.name}
@@ -193,9 +178,9 @@ export default function NewEntry() {
           </span>
         </div>
         <div className="card-pad">
-          {/* Category */}
+          {/* 1. Category */}
           <div className="field" style={{ marginBottom: 16 }}>
-            <label>Waste category</label>
+            <label>Type of waste</label>
             <div className="toggle-group">
               <button className={category === 'Chemical' ? 'active chem' : ''} onClick={() => switchCategory('Chemical')}>
                 <FlaskConical size={15} /> Chemical
@@ -207,79 +192,82 @@ export default function NewEntry() {
           </div>
 
           <div className="form-grid">
+            {/* 2. Name */}
             <div className="field full">
-              <label>Waste name / description <span className="req">*</span></label>
+              <label>Waste name or description <span className="req">*</span></label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder={category === 'Chemical' ? 'e.g. Spent formalin fixative' : 'e.g. BSL-2 culture waste (agar plates)'}
+                placeholder={category === 'Chemical' ? 'e.g. Spent acetone, waste formalin, used HCl…' : 'e.g. Bacterial culture plates, blood samples…'}
               />
             </div>
 
+            {/* 3. Generating activity */}
             <div className="field full">
-              <label>Generating activity <span className="req">*</span></label>
+              <label>What activity produced this waste? <span className="req">*</span></label>
               <input
                 value={activity}
                 onChange={(e) => setActivity(e.target.value)}
-                placeholder={category === 'Chemical' ? 'e.g. Histology tissue fixation' : 'e.g. Microbiology culturing & staining'}
+                placeholder={category === 'Chemical' ? 'e.g. Cleaning glassware with solvent, titration experiment…' : 'e.g. Staining bacterial cultures, preserving tissue…'}
               />
+              <span className="muted" style={{ fontSize: 11.5 }}>
+                The lab work or process that created it — simply, “what were you doing when this waste was made?”
+              </span>
             </div>
 
-            {/* Hazard traits */}
-            <div className="field full">
-              <label>Hazard characteristics <span className="muted" style={{ fontWeight: 400 }}>(select all that apply — informs the AI recommendation)</span></label>
-              <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
-                {traitOptions.map((t) => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    className={`filter-pill ${traits.includes(t.key) ? 'active' : ''}`}
-                    style={{ height: 30 }}
-                    onClick={() => toggleTrait(t.key)}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
+            {/* 4. Physical state */}
             <div className="field">
               <label>Physical state</label>
               <select value={physicalState} onChange={(e) => setPhysicalState(e.target.value)}>
-                {(category === 'Chemical'
-                  ? ['Liquid', 'Solid', 'Sludge', 'Aqueous', 'Mixed']
-                  : ['Cultures', 'Sharps', 'Tissue', 'Liquid', 'Mixed']
-                ).map((s) => (
+                {PHYS[category].map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
             </div>
+
+            {/* 6. Amount */}
             <div className="field">
-              <label>Volume generated <span className="req">*</span></label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input type="number" min="0" value={volume} onChange={(e) => setVolume(e.target.value)} placeholder="0" style={{ flex: 1 }} />
-                <select value={volUnit} onChange={(e) => setVolUnit(e.target.value)} style={{ width: 120 }}>
-                  {['L / month', 'mL / month', 'kg / month', 'g / month'].map((u) => (
+              <label>How much is generated? <span className="req">*</span></label>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <input type="number" min="0" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0" style={{ flex: '1 1 60px', minWidth: 0 }} />
+                <select value={amtUnit} onChange={(e) => setAmtUnit(e.target.value)} style={{ flex: '1 1 90px' }}>
+                  {['Liters', 'Milliliters', 'Kilograms', 'Grams'].map((u) => (
                     <option key={u}>{u}</option>
                   ))}
                 </select>
+                <select value={amtPer} onChange={(e) => setAmtPer(e.target.value)} style={{ flex: '1 1 90px' }}>
+                  {['per month', 'per week'].map((p) => (
+                    <option key={p}>{p}</option>
+                  ))}
+                </select>
               </div>
+              <span className="muted" style={{ fontSize: 11.5 }}>A rough estimate is fine.</span>
             </div>
 
+            {/* 7. Interim storage + AI suggestion */}
             <div className="field full">
-              <label>Interim storage before disposal <span className="req">*</span></label>
-              <input value={storage} onChange={(e) => setStorage(e.target.value)} placeholder="e.g. Labelled carboy in ventilated store, secondary containment" />
+              <label>Where is it stored before disposal? <span className="req">*</span></label>
+              <input value={storage} onChange={(e) => setStorage(e.target.value)} placeholder="e.g. Labelled bottle in the flammables cabinet" />
+              {name.trim() && storage.trim() !== storageSug && (
+                <button type="button" className="ai-suggest" onClick={() => setStorage(storageSug)}>
+                  <Sparkles size={12} />
+                  <span><b>AI suggests:</b> {storageSug} · <u>Use this</u></span>
+                </button>
+              )}
             </div>
 
+            {/* 8. Disposal method */}
             <div className="field">
-              <label>Disposal method <span className="req">*</span></label>
+              <label>How is it disposed of? <span className="req">*</span></label>
               <select value={method} onChange={(e) => setMethod(e.target.value)}>
-                <option value="">Select method…</option>
-                {methodOptions.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                <option value="">Select…</option>
+                {METHOD_OPTIONS[category].map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
                 ))}
               </select>
             </div>
+
+            {/* Unit */}
             <div className="field">
               <label>Academic unit <span className="req">*</span>
                 {isFocal && <span className="muted" style={{ fontWeight: 400 }}> · locked</span>}
@@ -296,28 +284,25 @@ export default function NewEntry() {
               )}
             </div>
 
+            {/* 9. Treatment + AI suggestion */}
             <div className="field full">
-              <label>Describe current disposal activity <span className="req">*</span></label>
-              <textarea
-                rows={2}
-                value={disposalActivity}
-                onChange={(e) => setDisposalActivity(e.target.value)}
-                placeholder="e.g. Spent formalin poured to drain after tissue processing / Autoclaved on-site then handed to DOH-licensed hauler in yellow bags"
-              />
+              <label>Treatment applied <span className="muted" style={{ fontWeight: 400 }}>(optional)</span></label>
+              <input value={treatment} onChange={(e) => setTreatment(e.target.value)} placeholder="e.g. Autoclaved 121°C 30 min / neutralized to pH 7" />
+              {method && treatment.trim() !== treatmentSug && (
+                <button type="button" className="ai-suggest" onClick={() => setTreatment(treatmentSug)}>
+                  <Sparkles size={12} />
+                  <span><b>AI suggests:</b> {treatmentSug} · <u>Use this</u></span>
+                </button>
+              )}
             </div>
 
-            <div className="field">
-              <label>Treatment applied {(method === 'On-site autoclave' || method === 'Non-burn treatment' || method === 'Neutralization') && <span className="muted" style={{ fontWeight: 400 }}>· recommended</span>}</label>
-              <input value={treatment} onChange={(e) => setTreatment(e.target.value)} placeholder="e.g. Autoclave 121°C 30 min / pH neutralization" />
-            </div>
-            <div className="field">
-              <label>Hauler {method === 'DENR-accredited hauler' && <span className="muted" style={{ fontWeight: 400 }}>· required</span>}</label>
-              <input value={hauler} onChange={(e) => setHauler(e.target.value)} placeholder="e.g. Cleanway (DENR-accredited)" />
-            </div>
-            <div className="field full">
-              <label>Manifest / reference {method === 'DENR-accredited hauler' && <span className="muted" style={{ fontWeight: 400 }}>· required</span>}</label>
-              <input value={manifest} onChange={(e) => setManifest(e.target.value)} placeholder="e.g. MNF-2026-0142" />
-            </div>
+            {/* 10. Hauler — only when relevant */}
+            {haulerRelevant && (
+              <div className="field full">
+                <label>Collected by <span className="muted" style={{ fontWeight: 400 }}>(hauler or company name)</span></label>
+                <input value={hauler} onChange={(e) => setHauler(e.target.value)} placeholder="e.g. Cleanway Environmental (DENR-accredited)" />
+              </div>
+            )}
 
             <div className="field full">
               <button
@@ -329,12 +314,12 @@ export default function NewEntry() {
                 {submitting
                   ? 'Submitting…'
                   : summary === 'blocked'
-                    ? 'Submit waste stream (flagged for correction)'
+                    ? 'Submit (flagged for correction)'
                     : 'Submit waste stream'}
               </button>
               {!requiredFilled && (
                 <span className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-                  Complete all required (*) fields to submit. Improper disposal is still recorded — and flagged for correction.
+                  Fill the required (*) fields to submit. Improper disposal is still recorded — and flagged for correction.
                 </span>
               )}
             </div>
@@ -351,58 +336,70 @@ export default function NewEntry() {
             <span className="live"><span className="live-dot" /> LIVE</span>
           </div>
           <div className="ai-panel-body">
-            {!method ? (
+            {!name.trim() ? (
               <div className="muted" style={{ color: 'rgba(233,239,233,0.6)', fontSize: 13 }}>
-                Select a disposal method — the AI evaluates it against this waste's hazard
-                profile and recommends whether it is handled properly, citing the relevant
-                biosafety and chemical-safety standards.
+                Start by naming the waste — the AI reads the name and activity, works out the
+                hazard, then checks how you dispose of it against biosafety and chemical-safety
+                standards.
               </div>
-            ) : rec ? (
+            ) : (
               <div>
-                <div className="flex justify-between items-center" style={{ marginBottom: 10 }}>
-                  <span className={`sev-tag ${rec.severity.toLowerCase()}`}>{rec.severity}</span>
-                  <span
-                    className="mono"
-                    style={{
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      color: rec.verdict === 'Properly handled' ? '#9be0b4' : rec.verdict === 'Needs improvement' ? '#f0cf8a' : '#f4b8af',
-                    }}
-                  >
-                    {rec.verdict}
-                  </span>
-                </div>
-
-                <div className="label">Waste classification</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                {/* AI classification (as soon as there's a name) */}
+                <div className="label">AI read this waste as</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
                   <span className="chip">{hazard.hazardClass}</span>
                   <span className="chip mono">{hazard.hazardCode}</span>
                 </div>
+                {traits.length > 0 && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+                    {traits.map((t) => (
+                      <span className="chip danger" key={t}>{traitLabel(t)}</span>
+                    ))}
+                  </div>
+                )}
 
-                <div className="label">Recommendation</div>
-                <p className="kv" style={{ color: '#d6e6dc', marginBottom: 12, lineHeight: 1.5 }}>{rec.summary}</p>
-
-                <div className="label">Recommended actions</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                  {rec.actions.map((a, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: '#d6e6dc', lineHeight: 1.4 }}>
-                      <Check size={13} style={{ marginTop: 2, flexShrink: 0, color: '#7fe6a3' }} />
-                      <span>{a}</span>
+                {!method || !rec ? (
+                  <div className="muted" style={{ color: 'rgba(233,239,233,0.6)', fontSize: 12.5, marginTop: 8 }}>
+                    Now choose <b style={{ color: '#fff' }}>how it’s disposed of</b> to get the full recommendation.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center" style={{ margin: '12px 0 10px' }}>
+                      <span className={`sev-tag ${rec.severity.toLowerCase()}`}>{rec.severity}</span>
+                      <span
+                        className="mono"
+                        style={{
+                          fontSize: 12.5, fontWeight: 700,
+                          color: rec.verdict === 'Properly handled' ? '#9be0b4' : rec.verdict === 'Needs improvement' ? '#f0cf8a' : '#f4b8af',
+                        }}
+                      >
+                        {rec.verdict}
+                      </span>
                     </div>
-                  ))}
-                </div>
-
-                <div className="divider" />
-                <div className="label">Based on standards</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {rec.standards.map((s) => (
-                    <span className="chip" key={s} style={{ background: 'rgba(42,111,219,0.18)', borderColor: 'rgba(42,111,219,0.3)', color: '#a8c5f5' }}>
-                      {s}
-                    </span>
-                  ))}
-                </div>
+                    <div className="label">Recommendation</div>
+                    <p className="kv" style={{ color: '#d6e6dc', marginBottom: 12, lineHeight: 1.5 }}>{rec.summary}</p>
+                    <div className="label">Recommended actions</div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+                      {rec.actions.map((a, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 8, fontSize: 12, color: '#d6e6dc', lineHeight: 1.4 }}>
+                          <Check size={13} style={{ marginTop: 2, flexShrink: 0, color: '#7fe6a3' }} />
+                          <span>{a}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="divider" />
+                    <div className="label">Based on standards</div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                      {rec.standards.map((s) => (
+                        <span className="chip" key={s} style={{ background: 'rgba(42,111,219,0.18)', borderColor: 'rgba(42,111,219,0.3)', color: '#a8c5f5' }}>
+                          {s}
+                        </span>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
-            ) : null}
+            )}
           </div>
         </div>
 
@@ -414,29 +411,24 @@ export default function NewEntry() {
           <div style={{ padding: '4px 16px 8px' }}>
             <div className="check-list">
               <CheckRow
-                state={classifyState}
-                title="Waste classified"
-                detail={!name.trim() ? 'Enter a waste name' : traits.length > 0 ? `${traits.length} hazard trait(s) declared` : 'Add hazard characteristics for a sharper recommendation'}
+                state={name.trim() ? 'ok' : 'idle'}
+                title="Waste identified"
+                detail={!name.trim() ? 'Enter a name or description' : `AI classified it as ${hazard.hazardClass}`}
               />
               <CheckRow
-                state={fieldsState}
-                title="Required fields complete"
-                detail={requiredFilled ? 'All mandatory fields provided' : 'Name, activity, volume, storage, method, disposal & unit required'}
+                state={requiredFilled ? 'ok' : name.trim() ? 'warn' : 'idle'}
+                title="Details complete"
+                detail={requiredFilled ? 'All required fields provided' : 'Name, activity, amount, storage, method & unit'}
               />
               <CheckRow
                 state={methodState}
-                title="Disposal method appropriate"
-                detail={!rec ? 'Select a disposal method' : rec.verdict === 'Properly handled' ? 'Method matches recommended practice' : rec.verdict === 'Needs improvement' ? 'Method acceptable with improvements' : 'Method conflicts with safe practice — flagged'}
+                title="Disposal method checked"
+                detail={!rec ? 'Choose how it’s disposed of' : rec.verdict === 'Properly handled' ? 'Matches recommended practice' : rec.verdict === 'Needs improvement' ? 'Acceptable with improvements' : 'Conflicts with safe practice — flagged'}
               />
               <CheckRow
-                state={treatmentState}
-                title="Treatment recorded"
-                detail={!method ? 'Select a method' : !treatmentExpected ? 'Not required for this method' : treatment.trim() ? 'Treatment documented' : 'This method should record the treatment applied'}
-              />
-              <CheckRow
-                state={manifestState}
-                title="Hauler & manifest"
-                detail={!haulerNeeded ? 'Not required for this method' : hauler.trim() && manifest.trim() ? 'Hauler and manifest recorded' : 'Hauler consignment needs an accredited hauler + manifest'}
+                state={storage.trim() ? 'ok' : name.trim() ? 'warn' : 'idle'}
+                title="Storage recorded"
+                detail={storage.trim() ? 'Interim storage noted' : 'Where is it kept before disposal?'}
               />
             </div>
 

@@ -20,42 +20,40 @@ const SECTIONS: { num: number; title: string; fields: SurveyField[] }[] = [
   },
   {
     num: 2,
-    title: 'Waste identification & generating activity',
+    title: 'What is the waste?',
     fields: [
-      { q: 'Waste category', type: 'Toggle · Chemical / Biological' },
-      { q: 'Waste name / description', type: 'Short text · required' },
-      { q: 'Generating activity (what produces it)', type: 'Short text · required' },
-      { q: 'Hazard characteristics', type: 'Multi-select · e.g. carcinogen, heavy metals, infectious, sharps, BSL-3' },
-      { q: 'Hazard classification (DENR / DOH / RCRA)', type: 'AI-suggested from characteristics' },
+      { q: 'Type of waste', type: 'Toggle · Chemical / Biological' },
+      { q: 'Waste name or description', type: 'Short text · required' },
+      { q: 'What activity produced this waste?', type: 'Short text · required — the lab work that created it' },
+      { q: 'Hazard & classification', type: '✨ Decided automatically by the AI from the name/description' },
     ],
   },
   {
     num: 3,
-    title: 'Volume & interim storage',
+    title: 'How much & where is it kept?',
     fields: [
       { q: 'Physical state', type: 'Select · liquid / solid / sludge / sharps / tissue' },
-      { q: 'Volume generated per month', type: 'Number + unit · required' },
-      { q: 'Interim storage before disposal', type: 'Short text · required' },
+      { q: 'How much is generated?', type: 'Amount + unit + per week / month · required' },
+      { q: 'Where is it stored before disposal?', type: 'Short text · required — ✨ AI suggests as you type' },
     ],
   },
   {
     num: 4,
-    title: 'Disposal activity & treatment',
+    title: 'How is it disposed of?',
     fields: [
-      { q: 'Disposal method', type: 'Select · Hauler / Neutralization / Autoclave / Non-burn / Drain / Untreated · required' },
-      { q: 'Describe current disposal activity', type: 'Long text · required' },
-      { q: 'Treatment applied', type: 'Short text · e.g. autoclave 121°C, pH neutralization' },
-      { q: 'Accredited hauler', type: 'Short text · required for hauler consignment' },
-      { q: 'Manifest / reference & date', type: 'Short text · required for hauler consignment' },
+      { q: 'Disposal method', type: 'Plain-language dropdown · required' },
+      { q: 'Treatment applied', type: 'Short text · optional — ✨ AI suggests as you type' },
+      { q: 'Collected by (hauler / company)', type: 'Short text · shown only when a hauler applies' },
+      { q: 'Manifest / reference', type: '✨ Handled by the AI — it reminds you to keep a manifest' },
     ],
   },
 ]
 
 const COVERAGE = [
-  'Each waste stream feeds the consolidated Waste Register',
+  'Minimal fields — the AI reads the name and fills in the hazard for you',
   'AI evaluates the disposal method against biosafety & chemical-safety standards',
+  'Suggests safe storage & treatment as the focal person types',
   'Generates per-unit waste-handling scores in the AI Waste Assessment',
-  'Improperly handled streams surface on the dashboard for corrective action',
   'Rolls up into the Consolidated Report to the Office of the President',
 ]
 
