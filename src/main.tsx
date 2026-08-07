@@ -18,6 +18,10 @@ import ConsolidatedReport from './screens/ConsolidatedReport'
 import Approvals from './screens/Approvals'
 import UnitsAdmin from './screens/UnitsAdmin'
 
+// Works at the domain root (dev, Vercel/Netlify) and under a subpath (GitHub
+// Pages serves at /vsu-hazmat-dashboard/ via Vite's BASE_URL).
+const basename = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/'
+
 const router = createBrowserRouter([
   { path: '/login', element: <Auth initialMode="login" /> },
   { path: '/register', element: <Auth initialMode="register" /> },
@@ -52,7 +56,7 @@ const router = createBrowserRouter([
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },
-])
+], { basename })
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
