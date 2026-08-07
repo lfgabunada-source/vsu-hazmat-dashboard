@@ -6,7 +6,6 @@ import {
   PlusCircle,
   Trash2,
   ShieldCheck,
-  Wrench,
   BookOpen,
   FileText,
   UserCheck,
@@ -61,14 +60,6 @@ export default function Sidebar({
       label: 'Safety',
       items: [
         { to: '/assessment', label: 'AI Waste Assessment', icon: ShieldCheck, ai: true },
-        {
-          to: '/actions',
-          label: 'Corrective Actions',
-          icon: Wrench,
-          badge: stats.openActions,
-          badgeTone: 'amber',
-          adminItem: true,
-        },
         { to: '/guidelines', label: 'Guidelines', icon: BookOpen },
       ],
     },

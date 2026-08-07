@@ -13,7 +13,6 @@ import UnitCoordination from './screens/UnitCoordination'
 import NewEntry from './screens/NewEntry'
 import WasteRegister from './screens/WasteRegister'
 import Assessment from './screens/Assessment'
-import CorrectiveActions from './screens/CorrectiveActions'
 import Guidelines from './screens/Guidelines'
 import ConsolidatedReport from './screens/ConsolidatedReport'
 import Approvals from './screens/Approvals'
@@ -32,7 +31,6 @@ const router = createBrowserRouter([
       { path: 'new', element: <NewEntry /> },
       { path: 'waste', element: <WasteRegister /> },
       { path: 'assessment', element: <Assessment /> },
-      { path: 'actions', element: <CorrectiveActions /> },
       { path: 'guidelines', element: <Guidelines /> },
       { path: 'report', element: <ConsolidatedReport /> },
       {

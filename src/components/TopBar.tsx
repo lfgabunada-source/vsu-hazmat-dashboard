@@ -8,7 +8,6 @@ const TITLES: Record<string, { title: string; sub: string }> = {
   '/new': { title: 'Report Waste', sub: 'Mandate 1 · The standardized TWG waste survey · AI checks how it’s handled' },
   '/waste': { title: 'Waste Register', sub: 'Mandate 5 · Waste generated per unit & disposal activities' },
   '/assessment': { title: 'AI Waste Assessment', sub: 'Are wastes handled properly? Recommendations vs. safety standards' },
-  '/actions': { title: 'Corrective Actions', sub: 'Mandate 6 · Remediation tasks from assessment findings' },
   '/guidelines': { title: 'Guidelines', sub: 'Management & handling reference' },
   '/report': { title: 'Consolidated Report', sub: 'Mandate 8 · Executive report to the Office of the President' },
   '/admin/approvals': { title: 'Approvals', sub: 'Review and approve focal-person accounts' },
